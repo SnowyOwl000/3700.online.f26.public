@@ -1,0 +1,208 @@
+\documentclass{article}
+
+\newif\ifshadedsectiontitles
+\shadedsectiontitlestrue
+
+\input{\doccommon}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\pagestyle{fancy}
+
+\begin{document}
+
+\thispagestyle{empty}
+\cfoot{\thepage\ of \pageref{LastPage}}
+\lhead{Data Structures and Objects}
+\chead{Lab 6}
+\rhead{Generic Containers}
+
+\noindent{\Huge Data Structures and Objects\\[3pt]CSIS 3700}\\[3pt]
+\emph{\large Lab 6 --- Generic Containers}\\[3pt]
+
+\section{Goal}
+Experiment with various methods for creating containers that can hold multiple
+types of data within the same program.
+
+\section{Method 1 --- Unions}
+So far, you have seen a {\bf class} --- a collection of data and the code that
+manipulates the data. You may have also seen a {\bf struct}, which is just the
+collection of data without the code.\parend
+
+A {\bf union} is similar to a {\bf struct}. The difference is, while a
+{\bf struct} can hold many values inside of itself simultaneously, a {\bf union}
+can only hold one value at a time. Consider the following {\bf struct}:
+\begin{lstlisting}
+struct {
+  int foo;
+  double bar;
+};
+\end{lstlisting}
+\vskip6pt
+This {\bf struct} can hold an integer {\bf foo} value and a double-precision
+value {\bf bar} simultaneously.\parend
+Now, consider the following {\bf union}:
+\begin{lstlisting}
+union {
+  int foo;
+  double bar;
+};
+\end{lstlisting}
+\vskip6pt
+This can hold either {\bf foo} or {\bf bar}, but not both simultaneously. The
+{\bf struct} has enough space to hold both --- 12 bytes on most systems ---
+while the {\bf union} only has enough space for the largest of its items ---
+the {\bf double}, which is 8 bytes.\parend
+
+To try this method out, you will need to modify the following files:
+\begin{itemize}
+  \item {\tt simpleStack.h}
+  \item {\tt simpleStack.cc}
+  \item {\tt stackTest1.cc}
+\end{itemize}
+
+First, modify {\tt simpleStack.h}, replacing the {\bf typedef} line with the
+following:
+\begin{lstlisting}
+union UItem {
+  int iVal;
+  double dVal;
+};
+
+typedef union UItem StackType;
+\end{lstlisting}
+\vskip6pt
+This defines the {\bf union} and creates an alias {\bf StackType}; the compiler
+will replace all occurrences of {\bf StackType} with {\bf union UItem}.\parend
+
+In {\tt stackTest1.cc}, create a single {\bf StackType} variable; add
+\begin{lstlisting}
+StackType digit;
+\end{lstlisting}
+as a local variable inside {\bf main(\,)}. Replace the {\bf push(\,)} call with
+\begin{lstlisting}
+digit.iVal = d;
+myStack.push(digit);
+\end{lstlisting}
+\vskip6pt
+Finally, replace the {\bf pop(\,)} and {\bf cout} lines with
+\begin{lstlisting}
+digit = myStack.pop();
+cout << digit.iVal << endl;
+\end{lstlisting}
+\vskip6pt
+Compile {\tt stackTest1.cc} and {\tt simpleStack.cc} with one {\tt g++} command;
+no {\tt Makefile} is necessary here. Test the program; it should read a number
+and output the digits one at a time in the proper order.
+
+\section{Method 2 --- Zen containers}
+``Argue for your limitations, and sure enough, they're yours.'' ---
+\emph{Messiah's Handbook}, from Richard Bach's \emph{Illusions}\parend
+
+Another method for containing multiple data types is to create a container that
+stores no data type. Some containers, such as stacks, queues and linear lists,
+do not place any special restrictions on the type of data stored within them. In
+fact, these containers completely ignore the data type, other than to use it to
+determine how many bytes to move into or out of the container. If that is the
+case, then it is possible to devise a container where no type is specified; only
+the number of bytes to move is given.\parend
+
+I call this type of approach a ``zen'' data structure, as it has a distinctly
+zen flavor to it: we can store any kind of data, since we specify no kind of
+data.\parend
+
+Note that some containers require some kind of data comparability; for example,
+dictionaries require at least the ability to compare two keys to see if they are
+the same, and binary search trees require the ability to compare two keys for
+equality and less or greater than. Zen data structures can be adapted to work
+with these (\emph{cf} the {\bf qsort(\,)} function) at the expense of
+complicating the code.\parend
+
+From the user's perspective, zen data structures differ from other structures in
+two main ways:
+\begin{itemize}
+  \item When initializing the container, the number of bytes to move must be
+  given.
+  \item Adding to and removing from the container require pointers to data be
+  passed.
+\end{itemize}
+
+To try this out, you will work with the following files:
+\begin{itemize}
+  \item {\tt zenStack.h}
+  \item {\tt zenStack.cc}
+  \item {\tt stackTest2.cc} --- same as stackTest1.cc
+\end{itemize}
+\newpage
+In {\tt stackTest2.cc}, change the stack declaration to
+\begin{lstlisting}
+ZenStack myStack(sizeof(int));
+\end{lstlisting}
+This determines the number of bytes in an integer, and then tells the zen stack
+to move that many bytes with each {\bf push(\,)} and {\bf pop(\,)}.\parend
+
+Next, change the {\bf push(\,)} call to
+\begin{lstlisting}
+myStack.push(&d);
+\end{lstlisting}
+\vskip6pt
+Finally, change the {\bf pop(\,)} line to
+\begin{lstlisting}
+myStack.pop(&d);
+\end{lstlisting}
+\vskip6pt
+Compile {\tt zenStack.cc} and {\tt stackTest2.cc} with one {\tt g++} command.
+The resulting executable should work exactly as the first one did.
+
+\section{Method 3 --- Multiple classes}
+A third method is to create a separate class for each type of data the container
+needs to store. Although we could actually write out multiple classes, there is
+a simpler way to accomplish this --- the {\bf template}.\parend
+
+With a template, a placeholder is used in the class definition wherever the data
+type is needed. When a template container object is declared, the actual data
+type is specified. The compiler then makes a behind-the-scenes copy of the
+template class, with the placeholder replaced with the actual data type.\parend
+
+One drawback of this approach is that all code must be placed inside the class.
+Non-template containers are usually split into an interface file holding the
+class definition and animplementation file holding the code for the class
+methods. Since the compiler needs all of the class information in order to make
+copies, the code must be part of the template.\parend
+
+To try this method out, you will work with the following files:
+\begin{itemize}
+  \item {\tt stack.h}, which is {\tt simpleStack.h} and {\tt simpleStack.cc}
+  combined into one file
+  \item {\tt stackTest3.cc}, which is the same as the other two test files
+\end{itemize}
+In {\tt stack.h}, remove the {\bf typedef} line, and add the following line
+immediately above the class line:
+\begin{lstlisting}
+template <class StackType>
+\end{lstlisting}
+This establishes the class as a template, using {\bf StackType} as a
+placeholder.\parend
+
+Next, in {\tt stackTest3.cc}, change the stack declaration to
+\begin{lstlisting}
+Stack<int> myStack;
+\end{lstlisting}
+That's all$\ldots$ compile {\tt stackTest3.cc} and it should work just as the
+other two files.\parend
+
+\section{Method 4 --- Shallow copy}
+There is a fourth method to create generic containers, but we will not attempt
+it in this lab.\parend
+
+The idea is for the container to only store pointers to data elements, not the
+elements themselves. This is called \emph{shallow copying}. The pointers or
+references can be made generic enough to store any kind of data in the
+container; one container can even store multiple types of data simultaneously
+--- a limitation on template containers. However, care must be taken to ensure
+that each item stored in this manner is actually a unique element and not just
+multiple pointers to the same object.
+
+\section{What to turn in}
+Please turn in your modified source code.
+
+\end{document}
